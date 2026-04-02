@@ -1,0 +1,223 @@
+---
+title: "Package managers"
+description: "Use npm, pnpm, Yarn Classic, or Yarn Modern in your Cypress workflow."
+---
+
+The action detects your package manager from the lock file at the root of your repository (or `working-directory`) and runs the appropriate install command automatically. This page covers setup details for each supported package manager and common workspace patterns.
+
+<Note>
+  Ensure exactly one lock file type is present at the root of your repository or `working-directory`. Multiple lock files may cause the action to select the wrong package manager.
+</Note>
+
+<Tabs>
+  <Tab title="npm">
+    npm is the default. Commit a `package-lock.json` file and the action runs `npm ci` automatically — no additional configuration required.
+
+    ```yaml .github/workflows/ci.yml
+    name: E2E tests
+    on: push
+    jobs:
+      cypress-run:
+        runs-on: ubuntu-24.04
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v6
+          - name: Cypress run
+            uses: cypress-io/github-action@v7
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    pnpm is not pre-installed on GitHub-hosted runners, so you must install it in a separate step before calling the action. The action detects a `pnpm-lock.yaml` file and runs `pnpm install --frozen-lockfile`.
+
+    Because you handle caching via `actions/setup-node`, disable the action's built-in caching with `package-manager-cache: false`.
+
+    Follow the [Cypress pnpm configuration instructions](https://docs.cypress.io/app/get-started/install-cypress#pnpm-configuration) to allow pnpm to install the Cypress binary.
+
+    ```yaml .github/workflows/ci.yml
+    name: E2E tests (pnpm)
+    on: push
+    jobs:
+      basic-pnpm:
+        runs-on: ubuntu-24.04
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v6
+
+          - name: Install pnpm
+            uses: pnpm/action-setup@v5
+            with:
+              version: 10
+
+          - name: Set up Node.js and pnpm cache
+            uses: actions/setup-node@v6
+            with:
+              node-version: 24
+              cache: 'pnpm'
+              cache-dependency-path: pnpm-lock.yaml
+
+          - name: Cypress run
+            uses: cypress-io/github-action@v7
+            with:
+              package-manager-cache: false
+    ```
+  </Tab>
+  <Tab title="Yarn Classic">
+    Yarn Classic (v1) is pre-installed on GitHub-hosted runners. Commit a `yarn.lock` file and the action runs `yarn --frozen-lockfile` automatically — no additional configuration required.
+
+    ```yaml .github/workflows/ci.yml
+    name: E2E tests (Yarn Classic)
+    on: push
+    jobs:
+      yarn-classic:
+        runs-on: ubuntu-24.04
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v6
+          - name: Cypress run
+            uses: cypress-io/github-action@v7
+    ```
+  </Tab>
+  <Tab title="Yarn Modern">
+    Yarn Modern (v2 and later) with `nodeLinker: node-modules` requires two extra steps compared to Yarn Classic:
+
+    1. Override the default install command with `install-command: yarn install`
+    2. Handle caching yourself via `actions/setup-node` and disable the action's built-in caching with `package-manager-cache: false`
+
+    Optionally run `corepack enable` to let Node.js manage the Yarn version declared in your `package.json`.
+
+    ```yaml .github/workflows/ci.yml
+    name: E2E tests (Yarn Modern)
+    on: push
+    jobs:
+      yarn-modern:
+        runs-on: ubuntu-24.04
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v6
+
+          - run: corepack enable
+
+          - name: Set up Yarn cache
+            uses: actions/setup-node@v6
+            with:
+              node-version: 24
+              cache: yarn
+              cache-dependency-path: yarn.lock
+
+          - name: Cypress run
+            uses: cypress-io/github-action@v7
+            with:
+              install-command: yarn install
+              package-manager-cache: false
+    ```
+
+    <Warning>
+      The action is **not** compatible with the `nodeLinker: pnpm` setting in `.yarnrc.yml`. Use `nodeLinker: node-modules` or `nodeLinker: pnp` (see the Yarn PnP tab).
+    </Warning>
+  </Tab>
+  <Tab title="Yarn PnP">
+    When using Yarn Modern with [Plug'n'Play](https://yarnpkg.com/features/pnp) (`nodeLinker: pnp` or the default for new Yarn Modern projects), the standard `npx cypress run` invocation does not work. Use the `command` parameter to call Yarn directly:
+
+    ```yaml .github/workflows/ci.yml
+    name: E2E tests (Yarn PnP)
+    on: push
+    jobs:
+      yarn-pnp:
+        runs-on: ubuntu-24.04
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v6
+          - name: Cypress run
+            uses: cypress-io/github-action@v7
+            with:
+              install-command: yarn install
+              command: yarn run --binaries-only cypress run
+    ```
+
+    <Warning>
+      The `command` parameter causes action parameters such as `browser`, `spec`, `record`, and `parallel` to be ignored. Pass those options directly in the `command` string if you need them.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## pnpm workspaces
+
+The action does not have native support for [pnpm workspaces](https://pnpm.io/workspaces). As a workaround, split the workflow into two steps: one to install dependencies at the workspace root and one to run tests inside the target workspace package.
+
+```yaml .github/workflows/ci.yml
+name: E2E tests (pnpm workspaces)
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10
+
+      - name: Set up Node.js and pnpm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      # Step 1: install all workspace dependencies, skip tests
+      - name: Install dependencies
+        uses: cypress-io/github-action@v7
+        with:
+          package-manager-cache: false
+          runTests: false
+          working-directory: .
+
+      # Step 2: run tests inside the specific workspace package
+      - name: Cypress test
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+          working-directory: packages/workspace-1
+```
+
+<Note>
+  The `install: false` on the second step tells the action to skip re-installing dependencies since they were already installed in the first step.
+</Note>
+
+## Yarn workspaces
+
+Yarn workspaces are detected automatically. Set `working-directory` to the workspace package that contains your Cypress tests:
+
+```yaml .github/workflows/ci.yml
+name: E2E tests (Yarn workspaces)
+on: push
+jobs:
+  single:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        with:
+          working-directory: packages/workspace-1
+          build: yarn run build
+          start: yarn start
+          wait-on: 'http://localhost:5000'
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Caching" icon="database" href="/workflow/caching">
+    Understand how the action caches the Cypress binary and package dependencies
+  </Card>
+  <Card title="Custom commands" icon="terminal" href="/advanced/custom-commands">
+    Override how Cypress is invoked with command and command-prefix
+  </Card>
+  <Card title="Working directory" icon="folder" href="/workflow/working-directory">
+    Configure monorepo and subfolder layouts
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/advanced/troubleshooting">
+    Fix common package manager errors
+  </Card>
+</CardGroup>

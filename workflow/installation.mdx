@@ -1,0 +1,109 @@
+---
+title: "Dependency installation"
+description: "Understand how cypress-io/github-action detects your package manager and installs dependencies, and how to customize or skip installation."
+---
+
+The action detects your package manager from the lock file committed to your repository and runs the appropriate frozen install command automatically. You do not need to run a separate install step in most cases.
+
+## Automatic detection
+
+The action looks for a lock file at the root of the repository (or in the `working-directory` you specify) and selects the corresponding package manager and install command:
+
+| Lock file           | Package manager | Install command                  |
+| ------------------- | --------------- | -------------------------------- |
+| `package-lock.json` | npm             | `npm ci`                         |
+| `pnpm-lock.yaml`    | pnpm            | `pnpm install --frozen-lockfile` |
+| `yarn.lock`         | Yarn Classic    | `yarn --frozen-lockfile`         |
+
+Each command performs a clean, reproducible install that respects the exact versions recorded in the lock file.
+
+<Note>
+  Ensure exactly one lock file type exists at the root of your repository or in the relevant `working-directory`. If multiple lock files are present, the action may select the wrong package manager.
+</Note>
+
+## Skipping installation
+
+If you install dependencies in an earlier step — for example, to run linting between install and tests — set `install: false` on any subsequent action step to skip reinstallation:
+
+```yaml .github/workflows/split-install.yml
+name: E2E
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        uses: cypress-io/github-action@v7
+        with:
+          runTests: false
+
+      - run: yarn lint
+
+      - name: Run e2e tests
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+          working-directory: e2e
+```
+
+Setting `runTests: false` on the first step installs dependencies without running Cypress. Setting `install: false` on the second step skips installation and runs only the tests.
+
+<Warning>
+  If your repository does not have a committed lock file, the action cannot install dependencies. In that case, install dependencies yourself in a prior step and then call the action with `install: false`.
+</Warning>
+
+## Overriding the install command
+
+Use `install-command` to replace the default install command with a custom one:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    install-command: yarn --frozen-lockfile --silent
+```
+
+This is useful when you need flags not included in the default command, such as `--silent` for quieter output or a workspace-specific install scope.
+
+## Install only, no tests
+
+Set `runTests: false` to install dependencies (and cache them) without running Cypress at all. Combine this with a second step that uses `install: false` to run tests separately:
+
+```yaml .github/workflows/split-steps.yml
+name: E2E
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install only
+        uses: cypress-io/github-action@v7
+        with:
+          runTests: false
+
+      - name: Run tests
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Caching" icon="database" href="/workflow/caching">
+    Understand how the action caches the Cypress binary and package manager dependencies
+  </Card>
+  <Card title="Package managers" icon="box" href="/advanced/package-managers">
+    Set up pnpm, Yarn Modern, and Yarn workspaces
+  </Card>
+  <Card title="Working directory and monorepos" icon="folder" href="/workflow/working-directory">
+    Install and test from a subdirectory
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters
+  </Card>
+</CardGroup>

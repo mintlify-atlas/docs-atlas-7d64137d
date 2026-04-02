@@ -1,0 +1,163 @@
+---
+title: "Troubleshooting"
+description: "Solutions to common problems with the Cypress GitHub Action."
+---
+
+<AccordionGroup>
+
+<Accordion title="wait-on is timing out and tests never start">
+The action polls the URL specified in `wait-on` until it responds or until `wait-on-timeout` seconds elapse (default: 60).
+
+**Steps to diagnose:**
+1. Increase the timeout: `wait-on-timeout: 120`
+2. Test the URL locally using the ping utility:
+   ```bash
+   node src/ping-cli.js http://localhost:3000
+   ```
+3. Enable action debug logs to see polling details:
+   ```yaml
+   env:
+     DEBUG: '@cypress/github-action'
+   ```
+
+See the [Debugging](/advanced/debugging) page for more detail on the ping utility.
+</Accordion>
+
+<Accordion title="Tests are running twice">
+This happens when `cypress run` is placed inside the `start` parameter. The `start` parameter is only for starting a background server — the action always runs Cypress separately.
+
+**Wrong:**
+```yaml
+with:
+  start: npx cypress run  # don't do this
+```
+
+**Correct:**
+```yaml
+with:
+  start: npm start  # start your dev server only
+```
+</Accordion>
+
+<Accordion title="Dependency installation fails">
+The action detects your package manager from a lock file in the repo root (or `working-directory`). Ensure exactly one of the following is committed:
+- `package-lock.json` (npm)
+- `pnpm-lock.yaml` (pnpm)
+- `yarn.lock` (Yarn)
+
+If you don't have a lock file, install dependencies before calling the action and set `install: false`:
+
+```yaml
+- run: npm install
+- uses: cypress-io/github-action@v7
+  with:
+    install: false
+```
+
+To override the default install command, use `install-command`:
+```yaml
+with:
+  install-command: yarn --frozen-lockfile --silent
+```
+</Accordion>
+
+<Accordion title="Caching errors when using cypress/included Docker image">
+The `cypress/included` Docker images bundle Cypress globally. When the action tries to save a Cypress binary cache, it may conflict with the pre-installed binary.
+
+Set `CYPRESS_INSTALL_BINARY=0` to prevent this:
+
+```yaml
+- uses: cypress-io/github-action@v7
+  with:
+    browser: chrome
+  env:
+    CYPRESS_INSTALL_BINARY: 0
+```
+</Accordion>
+
+<Accordion title="Re-running failed parallel jobs runs all tests, not just the failures">
+This is expected behavior. When you use GitHub Actions' "Re-run failed jobs" feature with parallel recording, the action re-runs **all** Cypress tests across all containers, not just the ones that previously failed.
+
+To selectively re-run only failing tests, use [Cypress Cloud Smart Orchestration](https://docs.cypress.io/cloud/features/smart-orchestration/overview/) features:
+- [Spec Prioritization](https://docs.cypress.io/cloud/features/smart-orchestration/spec-prioritization) — run failing specs first
+- [Auto Cancellation](/cloud/advanced-cloud) — stop the run early when failures exceed a threshold
+</Accordion>
+
+<Accordion title="Getting 'Build already finished' error on re-run">
+When recording with a custom `ci-build-id`, re-running the workflow reuses the same ID, which Cypress Cloud rejects since that run already completed.
+
+Use a robust build ID that includes a timestamp so re-runs always generate a new ID:
+
+```yaml
+jobs:
+  prepare:
+    outputs:
+      uuid: ${{ steps.uuid.outputs.value }}
+    steps:
+      - id: uuid
+        run: echo "value=sha-$GITHUB_SHA-time-$(date +"%s")" >> $GITHUB_OUTPUT
+
+  test:
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        with:
+          record: true
+          parallel: true
+          ci-build-id: ${{ needs.prepare.outputs.uuid }}
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+```
+
+See [Parallel test execution](/cloud/parallel) for the complete example.
+</Accordion>
+
+<Accordion title="pnpm workspace tests are not found">
+The action does not directly support pnpm workspaces. Use a two-step workaround: install in the workspace root, then run tests in the specific workspace package:
+
+```yaml
+- name: Install dependencies
+  uses: cypress-io/github-action@v7
+  with:
+    package-manager-cache: false
+    runTests: false
+    working-directory: my-monorepo
+
+- name: Run tests
+  uses: cypress-io/github-action@v7
+  with:
+    install: false
+    working-directory: my-monorepo/packages/my-app
+```
+</Accordion>
+
+<Accordion title="Yarn Modern with Plug'n'Play is not working">
+The action uses `npx` internally, which is not compatible with Yarn PnP. Use the `command` parameter to run Cypress through Yarn directly:
+
+```yaml
+- uses: cypress-io/github-action@v7
+  with:
+    working-directory: my-app
+    install-command: yarn install
+    command: yarn run --binaries-only cypress run
+```
+
+<Warning>
+Using `command` causes most other action parameters (`browser`, `spec`, `record`, etc.) to be ignored. Pass all options directly in the command string or via `cypress run` CLI flags.
+</Warning>
+</Accordion>
+
+</AccordionGroup>
+
+## Still stuck?
+
+Enable debug logging to capture more information:
+
+```yaml
+- uses: cypress-io/github-action@v7
+  env:
+    DEBUG: '@cypress/github-action'
+```
+
+Then open an issue at [cypress-io/github-action](https://github.com/cypress-io/github-action/issues) with the debug log output.

@@ -1,0 +1,222 @@
+---
+title: "Working directory and monorepos"
+description: "Run Cypress from a subdirectory, set up monorepo layouts, and split build and test jobs using artifacts."
+---
+
+The `working-directory` parameter tells the action where to find your Cypress configuration, tests, and lock file. It is essential for monorepos and projects where your app and tests live in separate folders.
+
+## The `working-directory` parameter
+
+By default, the action runs from the repository root. Set `working-directory` to point to the directory that contains your Cypress config file and lock file:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    working-directory: app-test
+```
+
+## Monorepo: app and tests in separate folders
+
+A common monorepo layout separates the application source from the Cypress tests:
+
+```text
+repo/
+  app/
+  app-test/
+    cypress/
+      e2e/
+      fixtures/
+      support/
+    cypress.config.js
+    package.json
+    package-lock.json
+```
+
+Use `working-directory: app-test` to point the action at the Cypress project:
+
+```yaml .github/workflows/monorepo.yml
+name: E2E
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        with:
+          start: npm start
+          working-directory: app-test
+```
+
+## Subfolders: app at root, tests in a subdirectory
+
+When your application lives at the repository root and your Cypress tests are in a subfolder with their own `package.json`, install the root dependencies first, start the server, then call the action with `working-directory` pointing to the test subfolder:
+
+```text
+root/
+  e2e/
+    cypress/
+    cypress.config.js
+    package.json
+    package-lock.json
+  package.json
+  package-lock.json
+```
+
+```yaml .github/workflows/subfolder.yml
+name: E2E
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Start server in the background
+        run: npm start &
+
+      - name: Install Cypress and run tests
+        uses: cypress-io/github-action@v7
+        with:
+          working-directory: e2e
+```
+
+<Steps>
+  <Step title="Install root dependencies">
+    Run `npm ci` (or your package manager's equivalent) as a separate step to install the application's dependencies.
+  </Step>
+  <Step title="Start the server">
+    Launch your server in the background with `&` so the step completes immediately and the next step can proceed.
+  </Step>
+  <Step title="Run Cypress from the subfolder">
+    Call the action with `working-directory: e2e`. The action installs the Cypress dependencies from the `e2e/` folder and runs the tests. Use [`wait-on`](/workflow/server-and-build) if the server takes time to become ready.
+  </Step>
+</Steps>
+
+## Split build and test with artifacts
+
+For larger projects, split your workflow into a dedicated build job and one or more test jobs. Pass build output between jobs using GitHub Actions artifacts.
+
+<Steps>
+  <Step title="Build job: compile the app and upload artifacts">
+    The build job runs the action with `runTests: false` to install dependencies and build the app, then uploads the build output:
+
+    ```yaml
+    build:
+      runs-on: ubuntu-24.04
+      steps:
+        - uses: actions/checkout@v6
+        - name: Build app
+          uses: cypress-io/github-action@v7
+          with:
+            runTests: false
+            build: npm run build
+        - name: Store build artifacts
+          uses: actions/upload-artifact@v4
+          with:
+            name: app
+            path: build
+            if-no-files-found: error
+            retention-days: 1
+    ```
+  </Step>
+  <Step title="Test job: restore artifacts and run Cypress">
+    The test job downloads the build artifacts, then runs Cypress using the built files:
+
+    ```yaml
+    test:
+      needs: build
+      runs-on: ubuntu-24.04
+      steps:
+        - uses: actions/checkout@v6
+        - name: Restore build artifacts
+          uses: actions/download-artifact@v4
+          with:
+            name: app
+            path: build
+        - name: Cypress tests
+          uses: cypress-io/github-action@v7
+          with:
+            start: npm start
+    ```
+  </Step>
+</Steps>
+
+Full example combining both jobs:
+
+```yaml .github/workflows/split-build-test.yml
+name: Split build and test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build app
+        uses: cypress-io/github-action@v7
+        with:
+          runTests: false
+          build: npm run build
+      - name: Store build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: build
+          if-no-files-found: error
+          retention-days: 1
+
+  test:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Restore build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: build
+      - name: Cypress tests
+        uses: cypress-io/github-action@v7
+        with:
+          start: npm start
+```
+
+## Avoiding hanging CI jobs
+
+Long-running or stalled processes can consume CI minutes. Set `timeout-minutes` at both the job and step level to enforce time limits:
+
+```yaml
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        timeout-minutes: 5
+```
+
+<Tip>
+  Set a tighter timeout on the action step than on the overall job. This gives the runner time to upload any artifacts or run cleanup steps even if Cypress itself times out.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Server and build" icon="server" href="/workflow/server-and-build">
+    Start a local server and wait for it to respond before tests run
+  </Card>
+  <Card title="Dependency installation" icon="package" href="/workflow/installation">
+    Control how and when dependencies are installed
+  </Card>
+  <Card title="Parallel execution" icon="layout-grid" href="/cloud/parallel">
+    Distribute tests across multiple machines with Cypress Cloud
+  </Card>
+  <Card title="Package managers" icon="box" href="/advanced/package-managers">
+    Set up pnpm, Yarn Modern, and Yarn workspaces
+  </Card>
+</CardGroup>

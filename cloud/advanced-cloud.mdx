@@ -1,0 +1,196 @@
+---
+title: "Advanced Cloud features"
+description: "Configure auto-cancellation after failures, job summaries, the resultsUrl output, and scheduled nightly test runs with Cypress Cloud."
+---
+
+This page covers Cypress Cloud features that go beyond basic recording: automatically stopping a run when too many tests fail, customising the job summary GitHub writes to the Actions log, reading the run URL from a step output, and running tests on a schedule.
+
+## Auto-cancel after failures
+
+The `auto-cancel-after-failures` parameter tells Cypress Cloud to cancel the entire run after a specified number of test failures. Cancellation stops all in-progress containers, saving CI minutes when a run is clearly broken.
+
+<Note>
+  Auto-cancellation requires **Cypress 12.6.0 or later** and a [Cypress Cloud Business or Enterprise](https://www.cypress.io/cloud/) plan.
+</Note>
+
+Set the parameter to the failure threshold you want:
+
+```yaml .github/workflows/ci.yml
+name: Cypress E2E tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    name: E2E
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+          # Cancel the Cypress Cloud run after 2 test failures
+          auto-cancel-after-failures: 2
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+When Cypress Cloud receives the cancellation signal, any container still running stops processing new specs. The run is marked as cancelled in Cypress Cloud rather than failed.
+
+For full details on the cancellation behaviour, see the [Cypress Cloud Auto Cancellation](https://docs.cypress.io/cloud/features/smart-orchestration/run-cancellation) documentation.
+
+## Job summaries
+
+By default, the action writes a job summary to the GitHub Actions log for every step where it runs. The summary shows:
+
+- A Passing or Failing status
+- Counts for Passed, Failed, Pending, and Skipped tests
+- The total run duration
+
+Summaries are grouped by job in the Actions UI.
+
+### Labelling summaries with `summary-title`
+
+When a job contains multiple steps that each invoke the action — for example headless and headed runs in sequence — give each step a distinct title using `summary-title`. Without a title, all summaries from the same job share the default label "Cypress Results", making them hard to tell apart.
+
+```yaml .github/workflows/ci.yml
+name: Summary titles
+on: push
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cypress headless tests
+        uses: cypress-io/github-action@v7
+        with:
+          summary-title: 'Headless'
+
+      - name: Cypress headed tests
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+          headed: true
+          summary-title: 'Headed'
+```
+
+Each step's summary appears with its own label in the job summary panel.
+
+### Suppressing job summaries
+
+Set `publish-summary: false` to prevent the action from writing any job summary:
+
+```yaml .github/workflows/ci.yml
+name: No summary
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          publish-summary: false
+```
+
+This is useful when you are aggregating results from another tool or when job summaries add noise to your workflow output.
+
+## Using the `resultsUrl` output
+
+After a recorded run finishes, the action sets a `resultsUrl` step output containing the direct URL to the run in Cypress Cloud. Reference this output in any subsequent step using the step's `id`.
+
+```yaml .github/workflows/ci.yml
+name: Cypress tests with results URL
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        # Assign an id so you can reference this step's outputs later
+        id: cypress
+        with:
+          record: true
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print Cypress Cloud URL
+        # Run this step even if the tests failed
+        if: always()
+        run: |
+          echo "Cypress finished with: ${{ steps.cypress.outcome }}"
+          echo "See results at ${{ steps.cypress.outputs.resultsUrl }}"
+```
+
+The `outcome` property is a standard GitHub Actions step context value — it can be `success`, `failure`, `cancelled`, or `skipped`. Combine it with `resultsUrl` to post a summary comment, trigger a notification, or gate a deployment.
+
+<Note>
+  The `dashboardUrl` output is deprecated. Use `resultsUrl` in all new workflows.
+</Note>
+
+`resultsUrl` is only set when `record: true` is used and Cypress is invoked through the action's default run path. It is **not** set when you use the `command` or `command-prefix` parameters.
+
+## Nightly and scheduled runs
+
+Use the `schedule` event with cron syntax to run your tests on a fixed schedule — for example every night at 4 AM UTC:
+
+```yaml .github/workflows/nightly.yml
+name: Nightly Cypress tests
+on:
+  schedule:
+    # Runs at 04:00 UTC every day
+    - cron: '0 4 * * *'
+jobs:
+  nightly:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Cypress nightly run
+        uses: cypress-io/github-action@v7
+        id: cypress
+        with:
+          record: true
+          tag: nightly
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print results URL
+        if: always()
+        run: echo "Results at ${{ steps.cypress.outputs.resultsUrl }}"
+```
+
+<Tip>
+  Tag your scheduled runs (for example `tag: nightly`) so they are easy to filter in Cypress Cloud's run list and do not get mixed up with runs triggered by pushes or pull requests.
+</Tip>
+
+You can combine scheduled runs with `auto-cancel-after-failures` and parallel execution to keep nightly runs fast and cost-effective.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Recording test results" icon="cloud" href="/cloud/recording">
+    Set up Cypress Cloud recording, Git metadata, and run tags
+  </Card>
+  <Card title="Parallel test execution" icon="layout-grid" href="/cloud/parallel">
+    Distribute tests across multiple containers
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters
+  </Card>
+  <Card title="Action outputs reference" icon="arrow-right" href="/reference/outputs">
+    Full list of step outputs set by the action
+  </Card>
+</CardGroup>

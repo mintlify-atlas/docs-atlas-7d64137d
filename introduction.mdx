@@ -1,0 +1,35 @@
+---
+title: "Introduction"
+description: "cypress-io/github-action runs Cypress end-to-end and component tests in GitHub Actions CI workflows with automatic dependency installation, caching, and Cypress Cloud integration."
+---
+
+`cypress-io/github-action` integrates Cypress testing into your GitHub Actions CI workflows. It handles the full setup lifecycle — installing dependencies, caching, starting servers, and running tests — in a single workflow step.
+
+The action supports [End-to-End testing](https://on.cypress.io/app/core-concepts/testing-types#What-is-E2E-Testing) and [Component testing](https://on.cypress.io/app/core-concepts/testing-types#What-is-Component-Testing), and is compatible with Cypress 10 and later on Node.js 20, 22, 24, and 25.
+
+## Key capabilities
+
+- **Dependency installation** — detects your lock file (`package-lock.json`, `pnpm-lock.yaml`, or `yarn.lock`) and runs the correct install command automatically
+- **Caching** — caches the Cypress binary and package manager cache between runs to reduce download time
+- **Server start and wait** — starts your dev server in the background and waits for it to respond before running tests
+- **Parallel execution** — load-balances tests across multiple containers using Cypress Cloud Smart Orchestration
+- **Cypress Cloud recording** — records test results, screenshots, and videos to Cypress Cloud for analysis and history
+- **Job summaries** — publishes pass/fail counts and run duration to the GitHub Actions job summary tab automatically
+- **Docker support** — runs inside Docker containers for reproducible, isolated CI environments
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Add Cypress tests to your workflow in minutes with a minimal example
+  </Card>
+  <Card title="Action inputs" icon="sliders" href="/reference/inputs">
+    Explore all available input parameters and their defaults
+  </Card>
+  <Card title="Cypress Cloud recording" icon="cloud" href="/cloud/recording">
+    Record results, run tests in parallel, and analyze failures
+  </Card>
+  <Card title="Package managers" icon="box" href="/advanced/package-managers">
+    Use npm, pnpm, Yarn Classic, or Yarn Modern in your workflow
+  </Card>
+</CardGroup>

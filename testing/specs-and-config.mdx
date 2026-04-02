@@ -1,0 +1,144 @@
+---
+title: "Specs and configuration"
+description: "Control which Cypress spec files run and how Cypress is configured using the spec, config, config-file, env, quiet, and project parameters."
+---
+
+The action exposes several parameters that let you control which tests run and how Cypress behaves: `spec` to select spec files, `config` to override configuration values, `config-file` to point to an alternate config file, `env` to pass environment variables, `quiet` to suppress output, and `project` to run a Cypress project in a subdirectory.
+
+## Selecting spec files
+
+Use the `spec` parameter to pass a [spec file filter](https://docs.cypress.io/guides/guides/command-line.html#cypress-run-spec-lt-spec-gt) to Cypress.
+
+**Single spec file:**
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    spec: cypress/e2e/spec1.cy.js
+```
+
+**Multiple specs and glob patterns:**
+
+Use a multi-line YAML block scalar (`|`) to list multiple spec files or glob patterns, one per line:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    spec: |
+      cypress/e2e/spec-a.cy.js
+      cypress/**/*-b.cy.js
+```
+
+When you list multiple values, Cypress runs all matching specs. You can mix exact paths and glob patterns in the same list.
+
+## Passing configuration values
+
+Use the `config` parameter to override [Cypress configuration](https://docs.cypress.io/guides/references/configuration.html) values. Separate multiple key-value pairs with a comma:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    config: pageLoadTimeout=100000,baseUrl=http://localhost:3000
+```
+
+Values set via `config` override anything defined in your `cypress.config.js` file.
+
+## Using an alternate config file
+
+Point Cypress at a different configuration file using the `config-file` parameter:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    config-file: cypress.config-alternate.js
+```
+
+This is useful when you maintain separate Cypress configurations for different environments or test types.
+
+## Setting environment variables
+
+You have two options for passing [Cypress environment variables](https://docs.cypress.io/app/guides/environment-variables).
+
+**Inline with the `env` action parameter:**
+
+Pass variables as a comma-separated `key=value` string using the action's `env` input:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    env: host=api.dev.local,port=4222
+```
+
+**Using the step `env` block with `CYPRESS_` prefix:**
+
+Alternatively, define each variable on its own line in the step's `env` block. Prefix each variable name with `CYPRESS_` — Cypress [loads these automatically](https://docs.cypress.io/app/guides/environment-variables):
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  env:
+    CYPRESS_host: api.dev.local
+    CYPRESS_port: 4222
+```
+
+Both approaches produce identical results. The `env` block form is easier to read when you have many variables, and it also lets you reference GitHub secrets cleanly:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    record: true
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## Suppressing output
+
+Set `quiet: true` to silence Cypress-specific output on `stdout`. This keeps your workflow logs focused on errors:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    quiet: true
+```
+
+## Running a project in a subdirectory
+
+Use the `project` parameter when your Cypress configuration file and specs live in a subdirectory rather than the repository root:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    project: ./test-subdirectory
+```
+
+The `project` path points to the directory containing your `cypress.config.js` and Cypress specs. Your package manager lock file (with Cypress listed as a dependency) must still be present at the root of the repository — or at the path set by `working-directory` — so the action can install dependencies.
+
+<Note>
+  The `project` path cannot be above the level of `working-directory` in the file hierarchy. If you use both parameters together, `project` must be a subdirectory of `working-directory`.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="End-to-end testing" icon="monitor" href="/testing/e2e">
+    Learn about E2E workflows and multi-OS runs
+  </Card>
+  <Card title="Component testing" icon="puzzle" href="/testing/component">
+    Run component tests with the same configuration parameters
+  </Card>
+  <Card title="Working directory" icon="folder" href="/workflow/working-directory">
+    Configure monorepo and subdirectory layouts
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    Full reference for all available action parameters
+  </Card>
+</CardGroup>

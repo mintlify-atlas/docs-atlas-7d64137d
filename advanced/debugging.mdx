@@ -1,0 +1,121 @@
+---
+title: "Debugging"
+description: "Enable debug logs and diagnose failures in your Cypress GitHub Action workflow."
+---
+
+## Enable action debug logs
+
+Set the `DEBUG` environment variable to `@cypress/github-action` to see verbose logs from the action itself:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  env:
+    DEBUG: '@cypress/github-action'
+```
+
+You can also set the GitHub secret or variable `ACTIONS_STEP_DEBUG` to `true` to enable GitHub's own step-level debug logging, which includes detailed caching information. See [Enabling debug logging](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/enabling-debug-logging) in the GitHub Actions docs.
+
+## Enable Cypress debug logs
+
+To see internal Cypress debug output, set `DEBUG` to `cypress:*`:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  env:
+    DEBUG: 'cypress:*'
+```
+
+You can filter to specific log sources by replacing `cypress:*` with a more targeted pattern, for example `cypress:server:*`.
+
+## Test your wait-on URL locally
+
+If `wait-on` is timing out in CI, reproduce the behavior locally using the ping utility included in the action's source:
+
+```bash
+# Clone the action repo
+git clone https://github.com/cypress-io/github-action.git
+cd github-action
+npm install
+
+# Start your server, then in another terminal:
+node src/ping-cli.js http://localhost:3000
+```
+
+With debug logs enabled:
+
+```bash
+DEBUG='@cypress/github-action' node src/ping-cli.js http://localhost:3000
+```
+
+Example output:
+
+```
+pinging url http://localhost:3000 for 30 seconds
+  @cypress/github-action total ping timeout 60000 +0ms
+  @cypress/github-action pinging http://localhost:3000 has finished ok after 185ms +185ms
+```
+
+## Print Cypress info
+
+To see the list of detected browsers and other Cypress environment information, use `build: npx cypress info`:
+
+```yaml
+- uses: cypress-io/github-action@v7
+  with:
+    build: npx cypress info
+```
+
+If you're already using the `build` parameter, split the install and test steps to insert the `cypress info` command in between:
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - name: Install
+    uses: cypress-io/github-action@v7
+    with:
+      runTests: false
+  - run: npx cypress info
+  - name: Run tests
+    uses: cypress-io/github-action@v7
+    with:
+      install: false
+```
+
+## Docker images
+
+Using a Docker container image pins browser versions and removes dependency on GitHub runner image changes:
+
+```yaml
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    container:
+      image: cypress/browsers:latest
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        with:
+          browser: chrome
+```
+
+When using `cypress/included` images (which bundle Cypress globally), set `CYPRESS_INSTALL_BINARY=0` to prevent cache errors:
+
+```yaml
+container:
+  image: cypress/included:latest
+  options: --user 1001
+steps:
+  - uses: actions/checkout@v6
+  - uses: cypress-io/github-action@v7
+    with:
+      browser: chrome
+    env:
+      CYPRESS_INSTALL_BINARY: 0
+```
+
+<Tip>
+Replace `latest` with a specific version tag to avoid unexpected breaking changes from new Docker image releases.
+</Tip>

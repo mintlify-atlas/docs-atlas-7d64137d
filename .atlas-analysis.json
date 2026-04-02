@@ -1,0 +1,118 @@
+{
+  "projectType": "general",
+  "projectName": "Cypress GitHub Action",
+  "projectDescription": "A GitHub Action that installs dependencies and runs Cypress end-to-end and component tests in GitHub Actions CI workflows, with built-in caching, parallelization, and Cypress Cloud recording support.",
+  "theme": "aspen",
+  "primaryColor": "#1c1c2c",
+  "lightColor": "#59ce99",
+  "darkColor": "#34685d",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "action-version"
+            ]
+          },
+          {
+            "group": "Testing",
+            "pages": [
+              "testing/e2e",
+              "testing/component",
+              "testing/browsers",
+              "testing/specs-and-config"
+            ]
+          },
+          {
+            "group": "Workflow Setup",
+            "pages": [
+              "workflow/server-and-build",
+              "workflow/installation",
+              "workflow/caching",
+              "workflow/working-directory"
+            ]
+          },
+          {
+            "group": "Cypress Cloud",
+            "pages": [
+              "cloud/recording",
+              "cloud/parallel",
+              "cloud/advanced-cloud"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/custom-commands",
+              "advanced/package-managers",
+              "advanced/debugging",
+              "advanced/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Action Reference",
+            "pages": [
+              "reference/inputs",
+              "reference/outputs",
+              "reference/cli-migration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Single-line GitHub Actions workflow integration for E2E and component tests",
+    "Automatic dependency installation with npm, pnpm, and Yarn support",
+    "Built-in Cypress binary and package manager caching",
+    "Parallel test execution via Cypress Cloud Smart Orchestration",
+    "Record test results to Cypress Cloud with PR detection",
+    "Start server and wait-on support for full-stack testing",
+    "Job summary output with pass/fail counts and test duration",
+    "Docker container compatibility for consistent CI environments"
+  ],
+  "publicApiSurface": [
+    "input: browser",
+    "input: component",
+    "input: config",
+    "input: config-file",
+    "input: spec",
+    "input: record",
+    "input: parallel",
+    "input: group",
+    "input: tag",
+    "input: build",
+    "input: start",
+    "input: start-windows",
+    "input: wait-on",
+    "input: wait-on-timeout",
+    "input: install",
+    "input: install-command",
+    "input: runTests",
+    "input: command",
+    "input: command-prefix",
+    "input: working-directory",
+    "input: project",
+    "input: env",
+    "input: headed",
+    "input: quiet",
+    "input: ci-build-id",
+    "input: auto-cancel-after-failures",
+    "input: cache-key",
+    "input: package-manager-cache",
+    "input: publish-summary",
+    "input: summary-title",
+    "output: resultsUrl",
+    "output: dashboardUrl (deprecated)"
+  ]
+}

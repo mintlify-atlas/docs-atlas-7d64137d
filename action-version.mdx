@@ -1,0 +1,53 @@
+---
+title: "Action version"
+description: "Understand how to reference cypress-io/github-action versions in your workflow, and the trade-offs between floating major versions and pinned tags."
+---
+
+When you reference `cypress-io/github-action` in a workflow, you specify a version using the `@` syntax. There are two strategies: use a floating major version tag like `@v7`, or pin to a specific release tag like `@v7.0.0`.
+
+## Recommended: use `@v7`
+
+All examples in this documentation use `@v7`, which is the current recommended major version:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+```
+
+When your workflow runs, GitHub resolves `@v7` to the latest tag published on the `v7` branch. This means you automatically receive patch and minor updates — bug fixes and new features — without changing your workflow file.
+
+## Pinning to a specific tag
+
+To prevent your workflow from picking up any changes, pin to a specific release tag:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7.0.0
+```
+
+Pinning gives you complete control over when updates apply. You opt in to each new version explicitly by updating the tag in your workflow file.
+
+<Tip>
+  Check the [CHANGELOG](https://github.com/cypress-io/github-action/blob/master/CHANGELOG.md) for an overview of what changed between versions before updating your pinned tag. Full details for each release are available on the [GitHub releases page](https://github.com/cypress-io/github-action/releases).
+</Tip>
+
+## Trade-offs
+
+| Strategy | Behaviour | Best for |
+|---|---|---|
+| `@v7` (floating) | Automatically picks up the latest patch and minor releases on the v7 branch | Most projects — you stay current with fixes without manual updates |
+| `@v7.0.0` (pinned) | Always uses that exact release; never changes unless you update the tag | Projects that require strict reproducibility or change control |
+
+## Version compatibility
+
+- **`github-action@v7`** is the current recommended version. It runs under Node.js 24 (`node24`) and is compatible with Cypress 10 and later. Use `@v7` for all new and existing workflows.
+- **`github-action@v6`** is deprecated. It runs under Node.js 20, which GitHub has deprecated on Actions runners. GitHub Actions will force runners to use Node.js 24 beginning on Mar 4, 2026. Migrate to `@v7`.
+- **`github-action` v1–v5** are unsupported. They rely on Node.js 12 and 16, which are end-of-life.
+
+<Warning>
+  If you are still using `@v6`, migrate to `@v7` now. GitHub will enforce Node.js 24 on runners and workflows pinned to `@v6` will break. The upgrade requires no other workflow changes in most cases — replace `@v6` with `@v7`.
+</Warning>
+
+## Node.js compatibility
+
+The action itself runs under the Node.js version specified in `action.yml`. For `@v7` this is `node24`. Your test project's Node.js version is separate — it is determined by the runner image or by a prior `actions/setup-node` step. The action supports running tests on Node.js 20, 22, 24, and 25.

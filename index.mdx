@@ -1,97 +1,79 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Cypress GitHub Action"
+description: "Run Cypress end-to-end and component tests in GitHub Actions CI workflows with automatic dependency installation, caching, and Cypress Cloud recording."
 ---
 
-## Setting up
+The `cypress-io/github-action` integrates Cypress testing into your GitHub Actions CI workflows with a single step. It handles dependency installation, caching, server startup, and test execution — so you can focus on writing tests.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Add Cypress tests to your GitHub Actions workflow in minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Action Inputs" icon="sliders" href="/reference/inputs">
+    Explore all available input parameters and their defaults
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Cypress Cloud" icon="cloud" href="/cloud/recording">
+    Record results, run tests in parallel, and analyze failures
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Package Managers" icon="box" href="/advanced/package-managers">
+    Use npm, pnpm, Yarn Classic, or Yarn Modern in your workflow
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What the action does
 
-Everything you need to create world-class documentation.
+In addition to running Cypress tests, the action handles the full CI setup lifecycle:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Dependency installation" icon="download">
+    Detects your lock file and installs dependencies with npm, pnpm, or Yarn automatically
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Intelligent caching" icon="database">
+    Caches the Cypress binary and package manager cache to speed up subsequent runs
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Server coordination" icon="server">
+    Start your dev server in the background and wait for it to respond before running tests
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Parallel execution" icon="split">
+    Load-balance tests across multiple containers using Cypress Cloud Smart Orchestration
   </Card>
-</Columns>
+  <Card title="Job summaries" icon="chart-bar">
+    Automatically publishes pass/fail counts and duration to the GitHub Actions job summary
+  </Card>
+  <Card title="Docker support" icon="docker">
+    Run tests inside Docker containers for consistent, reproducible CI environments
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Get started in three steps
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Add Cypress to your project">
+    Install Cypress as a dev dependency and make sure a lock file (`package-lock.json`, `pnpm-lock.yaml`, or `yarn.lock`) is committed to your repository.
+
+    ```bash
+    npm install --save-dev cypress
+    ```
+  </Step>
+  <Step title="Add the action to your workflow">
+    Create or update your GitHub Actions workflow file to include the Cypress action:
+
+    ```yaml .github/workflows/ci.yml
+    name: CI
+    on: push
+    jobs:
+      cypress-run:
+        runs-on: ubuntu-24.04
+        steps:
+          - uses: actions/checkout@v6
+          - uses: cypress-io/github-action@v7
+    ```
+  </Step>
+  <Step title="Push and watch your tests run">
+    Push your changes to GitHub. The action will install dependencies, cache them for future runs, and execute your Cypress tests automatically.
+  </Step>
+</Steps>
+
+<Tip>
+  Use `cypress-io/github-action@v7` to always run the latest patch release on the v7 branch. Pin to a specific tag like `@v7.0.0` if you need tighter version control.
+</Tip>

@@ -1,0 +1,166 @@
+---
+title: "Server and build"
+description: "Build your app and start a local server before Cypress tests run using the build, start, and wait-on parameters."
+---
+
+Many applications need a build step or a running server before tests can execute. The `build` and `start` parameters let you coordinate these steps within a single action invocation.
+
+## Building before tests
+
+Use the `build` parameter to run a command that compiles or bundles your app before Cypress starts:
+
+```yaml .github/workflows/build-and-test.yml
+name: Build and test
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          build: npm run build
+```
+
+The `build` command runs to completion before the action starts Cypress. Use it for any pre-test compilation — TypeScript builds, asset bundling, static site generation, etc.
+
+## Starting a server
+
+Use the `start` parameter to launch a local server in the background before the tests run:
+
+```yaml .github/workflows/with-server.yml
+name: With server
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          start: npm start
+```
+
+The server process runs in the background for the duration of the job. At the end of the job, the GitHub Actions runner terminates any remaining background processes automatically during its "Complete job" phase.
+
+<Warning>
+  Use `start` only to launch a server — not to run Cypress directly. The action runs Cypress automatically unless you set `runTests: false`. Passing a Cypress run command to `start` causes tests to run twice.
+</Warning>
+
+## Windows-specific start command
+
+Some server start commands differ between operating systems. Use `start-windows` to provide an alternative command that takes precedence on Windows runners:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    start: npm start
+    start-windows: npm run start:windows:server
+```
+
+On Linux and macOS the action uses `start`. On Windows it uses `start-windows` instead.
+
+## Starting multiple servers
+
+Pass multiple start commands separated by a comma to launch more than one server:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    start: npm run api, npm run web
+```
+
+You can also use a multiline YAML string for readability:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    start: |
+      npm run api
+      npm run web
+```
+
+Both forms start each command in the background before running tests.
+
+## Waiting for the server to respond
+
+Servers often take a moment to become ready after starting. Use `wait-on` to poll a URL and hold off running tests until the server responds:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    start: npm start
+    wait-on: 'http://localhost:8080'
+```
+
+<Note>
+  Quote the `wait-on` URL to prevent YAML from misinterpreting the colon in the URL scheme.
+</Note>
+
+By default, the action polls for up to 60 seconds. Override this with `wait-on-timeout` (value in seconds):
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    start: npm start
+    wait-on: 'http://localhost:8080/status'
+    wait-on-timeout: 120
+```
+
+To wait for multiple URLs, separate them with a comma. The action checks each URL in order:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    start: npm run api, npm run web
+    wait-on: 'http://localhost:3050, http://localhost:8080'
+```
+
+## Full example: build, start, and wait
+
+The following workflow combines all three parameters to build an app, start its server, wait for it to be ready, and then run Cypress:
+
+```yaml .github/workflows/full-workflow.yml
+name: E2E tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          build: npm run build
+          start: npm start
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Working directory and monorepos" icon="folder" href="/workflow/working-directory">
+    Run tests from a subdirectory or in a monorepo layout
+  </Card>
+  <Card title="Dependency installation" icon="package" href="/workflow/installation">
+    Control how and when dependencies are installed
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters
+  </Card>
+  <Card title="Debugging" icon="bug" href="/advanced/debugging">
+    Troubleshoot server startup and wait-on timeouts
+  </Card>
+</CardGroup>

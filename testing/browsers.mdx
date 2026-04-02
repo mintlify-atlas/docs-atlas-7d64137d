@@ -1,0 +1,137 @@
+---
+title: "Running tests in different browsers"
+description: "Run Cypress tests in Electron, Chrome, Firefox, Edge, Chrome for Testing, or headed mode using cypress-io/github-action."
+---
+
+Use the `browser` parameter to choose which browser Cypress runs your tests in. You can also use `headed: true` to display the browser window during the run.
+
+## Default browser: Electron
+
+If you do not specify a `browser`, Cypress uses its built-in [Electron browser](https://on.cypress.io/guides/guides/launching-browsers#Electron-Browser). Electron is bundled with Cypress — no installation required — and works on Ubuntu, Windows, and macOS runners without any extra steps.
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+```
+
+## Choosing a browser
+
+<Note>
+  Chrome, Firefox, and Edge must be installed on the runner before Cypress can use them. GitHub-hosted Ubuntu and macOS runners include Chrome, Firefox, and Edge by default. On Windows runners, check the [GitHub runner image software lists](https://github.com/actions/runner-images) to confirm availability for your target OS version.
+</Note>
+
+<Tabs>
+  <Tab title="Chrome">
+    Pass `browser: chrome` to run your tests in Google Chrome:
+
+    ```yaml .github/workflows/chrome.yml
+    name: E2E on Chrome
+    on: push
+    jobs:
+      chrome:
+        runs-on: ubuntu-24.04
+        name: E2E on Chrome
+        steps:
+          - uses: actions/checkout@v6
+          - uses: cypress-io/github-action@v7
+            with:
+              browser: chrome
+    ```
+  </Tab>
+  <Tab title="Firefox">
+    Pass `browser: firefox` to run your tests in Mozilla Firefox:
+
+    ```yaml .github/workflows/firefox.yml
+    name: E2E on Firefox
+    on: push
+    jobs:
+      firefox:
+        runs-on: ubuntu-24.04
+        name: E2E on Firefox
+        steps:
+          - uses: actions/checkout@v6
+          - uses: cypress-io/github-action@v7
+            with:
+              browser: firefox
+    ```
+  </Tab>
+  <Tab title="Edge">
+    Pass `browser: edge` to run your tests in Microsoft Edge:
+
+    ```yaml .github/workflows/edge.yml
+    name: E2E on Edge
+    on: push
+    jobs:
+      edge:
+        runs-on: ubuntu-24.04
+        name: E2E on Edge
+        steps:
+          - uses: actions/checkout@v6
+          - uses: cypress-io/github-action@v7
+            with:
+              browser: edge
+    ```
+  </Tab>
+</Tabs>
+
+## Chrome for Testing
+
+[Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing/) is a dedicated Chrome build for automated testing. Install a specific version using [browser-actions/setup-chrome](https://github.com/browser-actions/setup-chrome) before running the action, then pass `browser: chrome-for-testing`:
+
+```yaml .github/workflows/chrome-for-testing.yml
+name: E2E on Chrome for Testing
+on: push
+jobs:
+  chrome:
+    runs-on: ubuntu-24.04
+    name: E2E on Chrome for Testing
+    steps:
+      - uses: actions/checkout@v6
+      - uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: 140
+      - uses: cypress-io/github-action@v7
+        with:
+          browser: chrome-for-testing
+```
+
+Refer to [Chrome for Testing availability](https://googlechromelabs.github.io/chrome-for-testing/) for current stable versions, or the [JSON API endpoints](https://github.com/GoogleChromeLabs/chrome-for-testing#json-api-endpoints) for a full list of available versions.
+
+## Headed mode
+
+By default, `cypress run` executes tests headlessly (since Cypress v8.0). To display the browser window during the run — useful for debugging on a runner with a display — set `headed: true`:
+
+```yaml .github/workflows/headed.yml
+name: Chrome headed
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        with:
+          browser: chrome
+          headed: true
+```
+
+<Tip>
+  Headed mode is most useful when combined with screenshot or video artifacts to visually inspect test results. On GitHub-hosted runners, headed mode works on Ubuntu and macOS. Windows runners may require additional display setup.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="End-to-end testing" icon="monitor" href="/testing/e2e">
+    Run E2E tests across Ubuntu, Windows, and macOS
+  </Card>
+  <Card title="Specs and configuration" icon="sliders" href="/testing/specs-and-config">
+    Target specific spec files and pass Cypress config values
+  </Card>
+  <Card title="Cypress Cloud recording" icon="cloud" href="/cloud/recording">
+    Record test results and video across browsers
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters including `browser` and `headed`
+  </Card>
+</CardGroup>

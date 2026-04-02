@@ -1,0 +1,99 @@
+---
+title: "End-to-End Testing"
+description: "Run Cypress E2E tests in GitHub Actions using cypress-io/github-action, including multi-OS workflows and combining E2E with component tests."
+---
+
+End-to-End (E2E) testing verifies your application from the user's perspective — it opens a real browser, navigates your app, and asserts on what the user sees. `cypress-io/github-action` runs E2E tests by default: the action checks out your code, installs dependencies with caching, and executes `cypress run` in a single workflow step.
+
+## Minimal E2E workflow
+
+The simplest E2E workflow requires only two steps — checkout and the action:
+
+```yaml .github/workflows/e2e.yml
+name: End-to-end tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+```
+
+The action detects your lock file, installs your dependencies (caching them for future runs), and runs all Cypress E2E tests found in your project.
+
+<Note>
+  `cypress` must be declared as a `devDependency` in your `package.json` and your lock file must be committed to the repository. The action uses the [Cypress Module API](https://on.cypress.io/module-api), which requires Cypress to be installed as a local dependency.
+</Note>
+
+## The `component` parameter default
+
+The action defaults to E2E testing mode. You do not need to set any parameter to run E2E tests — `component: false` is the default behaviour. Setting `component: true` switches the action to [Component Testing](/testing/component) mode.
+
+## Running on multiple operating systems
+
+GitHub-hosted runners are available for Ubuntu, Windows, and macOS. You can run the same E2E tests on all three platforms using a matrix strategy:
+
+```yaml .github/workflows/e2e-multi-os.yml
+name: End-to-end tests (multi-OS)
+on: push
+jobs:
+  cypress-run:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+```
+
+No additional OS-level dependencies are required for the default Electron browser — the Cypress binary includes Electron and it works on all three platforms out of the box.
+
+## Combining E2E and component tests in one job
+
+You can run both E2E and component tests in the same job using two separate steps. The second step sets `install: false` to reuse the dependencies already installed by the first step, and `component: true` to switch to component testing mode:
+
+```yaml .github/workflows/e2e-and-component.yml
+name: E2E and component tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run E2E tests
+        uses: cypress-io/github-action@v7
+
+      - name: Run component tests
+        uses: cypress-io/github-action@v7
+        with:
+          # Dependencies are already installed — skip reinstall
+          install: false
+          component: true
+```
+
+Setting `install: false` on the second step skips dependency installation and reuses the node_modules and Cypress binary cached by the first step, making the job faster.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Component testing" icon="puzzle" href="/testing/component">
+    Set up Cypress component tests with your UI framework
+  </Card>
+  <Card title="Browsers" icon="globe" href="/testing/browsers">
+    Run your E2E tests in Chrome, Firefox, Edge, or headed mode
+  </Card>
+  <Card title="Specs and configuration" icon="sliders" href="/testing/specs-and-config">
+    Target specific spec files, pass config values, and set environment variables
+  </Card>
+  <Card title="Server and build" icon="server" href="/workflow/server-and-build">
+    Start your dev server before the tests run
+  </Card>
+</CardGroup>

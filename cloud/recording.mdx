@@ -1,0 +1,261 @@
+---
+title: "Recording test results"
+description: "Send Cypress test results to Cypress Cloud using record: true, and configure Git metadata, PR detection, and run tags."
+---
+
+Setting `record: true` sends your test results to [Cypress Cloud](https://on.cypress.io/cloud-introduction), where you can view pass/fail history, screenshots, videos, and detailed run analytics. Recording also unlocks features such as parallelization, smart orchestration, and flake detection.
+
+<Note>
+  Recording requires a Cypress Cloud account. Sign up at [cypress.io/cloud](https://www.cypress.io/cloud) and follow the [Cloud project setup](https://on.cypress.io/cloud/get-started/setup) to create a project and obtain your `projectId` and record key.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Add your projectId to the Cypress configuration file">
+    Open your Cypress configuration file (for example `cypress.config.js`) and add the `projectId` from your Cypress Cloud project settings:
+
+    ```js cypress.config.js
+    const { defineConfig } = require('cypress')
+
+    module.exports = defineConfig({
+      projectId: 'your-project-id',
+      e2e: {
+        // ...
+      },
+    })
+    ```
+
+    Alternatively, you can pass `CYPRESS_PROJECT_ID` as an environment variable in the workflow rather than storing it in the config file.
+  </Step>
+  <Step title="Store your record key as a GitHub secret">
+    In your GitHub repository, go to **Settings → Secrets and variables → Actions** and add two secrets:
+
+    - `CYPRESS_PROJECT_ID` — the project ID from Cypress Cloud (only needed if you are not storing `projectId` in your config file)
+    - `CYPRESS_RECORD_KEY` — the record key from Cypress Cloud. Treat this value as sensitive; anyone with the record key can write results to your Cloud project.
+  </Step>
+  <Step title="Add record: true to your workflow">
+    Update your workflow file to set `record: true` and pass the required environment variables:
+
+    ```yaml .github/workflows/ci.yml
+    name: Cypress tests
+    on: push
+    jobs:
+      cypress-run:
+        name: Cypress run
+        runs-on: ubuntu-24.04
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v6
+
+          - name: Cypress run
+            uses: cypress-io/github-action@v7
+            with:
+              record: true
+            env:
+              # Pass the projectId as an env var, or store it in cypress.config.js
+              CYPRESS_PROJECT_ID: ${{ secrets.CYPRESS_PROJECT_ID }}
+              # Pass the record key — keep this secret
+              CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+              # Pass the GitHub token to accurately identify each build vs re-run
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    ```
+  </Step>
+</Steps>
+
+## Git information
+
+Cypress uses the [`@cypress/commit-info`](https://github.com/cypress-io/commit-info) package to read Git metadata (branch name, commit SHA, commit message, and author) from the `.git` folder. This information appears alongside your run in Cypress Cloud.
+
+In some environments — such as Docker containers that do not include the `.git` directory — this automatic detection fails. You can override any Git field by setting the corresponding `COMMIT_INFO_*` environment variable:
+
+| Environment variable   | Description                       |
+| ---------------------- | --------------------------------- |
+| `COMMIT_INFO_BRANCH`   | Branch name                       |
+| `COMMIT_INFO_MESSAGE`  | Commit message                    |
+| `COMMIT_INFO_SHA`      | Commit SHA                        |
+| `COMMIT_INFO_AUTHOR`   | Commit author name                |
+| `COMMIT_INFO_EMAIL`    | Commit author email               |
+| `COMMIT_INFO_TIMESTAMP`| Commit timestamp                  |
+| `COMMIT_INFO_REMOTE`   | Remote URL                        |
+
+The following example overrides the branch name using the GitHub Actions `github.ref_name` context:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    record: true
+  env:
+    COMMIT_INFO_BRANCH: ${{ github.ref_name }}
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+```
+
+For a full list of available GitHub Actions context values, see the [GitHub Actions default environment variables](https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables) documentation.
+
+## Automatic PR number and URL detection
+
+When you pass `GITHUB_TOKEN` to the workflow, the action queries the GitHub API to find the pull request associated with the current commit. It then sets two environment variables that Cypress Cloud uses to link runs to their PRs:
+
+- `CYPRESS_PULL_REQUEST_ID` — the PR number
+- `CYPRESS_PULL_REQUEST_URL` — the URL of the PR
+
+The detection behaviour differs by trigger event:
+
+- **`pull_request` / `pull_request_target`** — the action sets the ID and URL of the PR that triggered the workflow.
+- **`push`** — the action searches for any open PR that contains the commit. If one is found, it uses that PR's number and URL. If no related PR exists, both variables remain undefined.
+
+You can use these variables in subsequent steps:
+
+```yaml .github/workflows/ci.yml
+name: Cypress tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+      - run: echo "PR number is $CYPRESS_PULL_REQUEST_ID"
+      - run: echo "PR URL is $CYPRESS_PULL_REQUEST_URL"
+    env:
+      CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## Merge SHA into SHA
+
+When your workflow triggers on `pull_request` or `merge_group`, GitHub creates a synthetic merge commit to represent the state of the branch merged into the base. The commit message for this merge commit is `"Merge SHA into SHA"` — which appears verbatim in Cypress Cloud and disables the PR comment bot.
+
+<Note>
+  Use `on: push` instead of `on: pull_request` whenever possible. The `push` event records the real commit SHA and message, which makes Cypress Cloud run history much easier to read.
+</Note>
+
+If you must use `on: pull_request`, override the commit message and SHA that Cypress Cloud receives:
+
+```yaml .github/workflows/ci.yml
+name: Cypress tests
+on: pull_request
+jobs:
+  cypress-run:
+    name: Cypress run
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+        env:
+          # Use the PR title as the commit message in Cypress Cloud
+          COMMIT_INFO_MESSAGE: ${{ github.event.pull_request.title }}
+          # Use the head SHA so the PR comment bot can post correctly
+          COMMIT_INFO_SHA: ${{ github.event.pull_request.head.sha }}
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+```
+
+## Tag recordings
+
+Use the `tag` parameter to label a recorded run with one or more tags. Tags appear in the Cypress Cloud run list and make it easy to filter runs by environment, branch, or test type.
+
+Pass a single tag:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    record: true
+    tag: staging
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Pass multiple tags as a comma-separated string:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    record: true
+    tag: node-22,nightly,staging
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+A common pattern is to use a matrix value as part of the tag so that each container in a matrix run is labelled distinctly:
+
+```yaml .github/workflows/ci.yml
+name: Node version matrix
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+    name: E2E on Node v${{ matrix.node }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+          tag: node-${{ matrix.node }}
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## The `resultsUrl` step output
+
+After a recorded run completes, the action sets a `resultsUrl` step output containing the direct URL to the run in Cypress Cloud. You can reference this URL in downstream steps using the step's `id`.
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  id: cypress
+  with:
+    record: true
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+
+- name: Print Cypress Cloud URL
+  if: always()
+  run: |
+    echo "Cypress finished with: ${{ steps.cypress.outcome }}"
+    echo "See results at ${{ steps.cypress.outputs.resultsUrl }}"
+```
+
+<Note>
+  The `dashboardUrl` output is deprecated. Use `resultsUrl` instead. See [Advanced Cloud features](/cloud/advanced-cloud) for a complete example using `resultsUrl`.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Parallel test execution" icon="layout-grid" href="/cloud/parallel">
+    Split tests across multiple containers using Cypress Cloud parallelization
+  </Card>
+  <Card title="Advanced Cloud features" icon="sparkles" href="/cloud/advanced-cloud">
+    Auto-cancel after failures, job summaries, and scheduled runs
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters
+  </Card>
+  <Card title="Action outputs reference" icon="arrow-right" href="/reference/outputs">
+    Full list of step outputs set by the action
+  </Card>
+</CardGroup>

@@ -1,0 +1,137 @@
+---
+title: "Caching"
+description: "Learn how cypress-io/github-action caches the Cypress binary and package manager dependencies to speed up your CI runs."
+---
+
+The action automatically caches two things between runs: the Cypress binary and your package manager's dependency cache. These caches reduce download time on subsequent workflow runs.
+
+## Cypress binary cache
+
+The Cypress binary is stored at `~/.cache/Cypress` (or the path set by the `CYPRESS_CACHE_FOLDER` environment variable). The action caches this directory using the GitHub Actions cache with the label `cypress-<platform-and-architecture>-hash`.
+
+On a cache hit, Cypress is restored from cache rather than downloaded again, significantly reducing install time.
+
+## Package manager cache
+
+Based on the lock file in your repository, the action also caches the package manager's local download cache:
+
+| Lock file           | Package manager | Cached location     |
+| ------------------- | --------------- | ------------------- |
+| `package-lock.json` | npm             | `~/.npm`            |
+| `yarn.lock`         | Yarn Classic    | `~/.cache/yarn`     |
+
+This cache carries the label `npm-<platform-and-architecture>-hash`.
+
+<Note>
+  The action does not include built-in caching for pnpm or Yarn Modern. Use `actions/setup-node` to cache those package managers, as shown below.
+</Note>
+
+## Caching pnpm and Yarn Modern
+
+For pnpm or Yarn Modern, disable the action's built-in caching and set up caching through `actions/setup-node` instead:
+
+```yaml .github/workflows/pnpm-cached.yml
+name: E2E with pnpm
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10
+      - name: Set up Node.js with pnpm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          package-manager-cache: false
+```
+
+For Yarn Modern, pass `cache: yarn` to `actions/setup-node`:
+
+```yaml .github/workflows/yarn-modern-cached.yml
+name: E2E with Yarn Modern
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Node.js with Yarn Modern cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: yarn.lock
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          install-command: yarn install
+          package-manager-cache: false
+```
+
+## Disabling the built-in package manager cache
+
+Set `package-manager-cache: false` to turn off the action's automatic package manager caching entirely. Do this when you manage caching yourself — for example, through `actions/setup-node` — to avoid conflicts:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    package-manager-cache: false
+```
+
+## Custom cache key
+
+The default cache key is shared across all jobs that use the same OS, architecture, and lock file hash. If you run tests across multiple Node versions and your dependencies include native extensions, the cached modules from one Node version may not be compatible with another.
+
+Use `cache-key` to provide a unique key per Node version:
+
+```yaml .github/workflows/node-versions.yml
+name: E2E on multiple Node versions
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+    name: E2E on Node v${{ matrix.node }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          cache-key: node-v${{ matrix.node }}-on-${{ runner.os }}-hash-${{ hashFiles('yarn.lock') }}
+```
+
+Each matrix entry stores and restores its own isolated cache, preventing cross-version cache pollution.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Package managers" icon="box" href="/advanced/package-managers">
+    Detailed setup for pnpm, Yarn Modern, and Yarn workspaces
+  </Card>
+  <Card title="Dependency installation" icon="package" href="/workflow/installation">
+    Control how and when the action installs dependencies
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters including cache-key and package-manager-cache
+  </Card>
+  <Card title="Debugging" icon="bug" href="/advanced/debugging">
+    Troubleshoot caching and installation issues
+  </Card>
+</CardGroup>

@@ -1,0 +1,117 @@
+---
+title: "Custom commands and prefixes"
+description: "Use command and command-prefix to customize how Cypress runs in CI."
+---
+
+By default, the action runs `cypress run` through the [Cypress Module API](https://on.cypress.io/module-api), mapping each action parameter to the corresponding API option. Two parameters let you break out of this model when you need full control over the invocation: `command` and `command-prefix`.
+
+## `command-prefix`
+
+Use `command-prefix` when you need to wrap `cypress run` with a third-party tool such as [BrowserStack Percy](https://www.browserstack.com/docs/percy/integrate/cypress). The action prepends your prefix and constructs the full CLI command automatically:
+
+```text
+npx <command-prefix> cypress run <cli-options>
+```
+
+The following example runs Cypress through Percy's wrapper:
+
+```yaml .github/workflows/visual.yml
+name: Visual
+on: push
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          command-prefix: 'percy exec -- npx'
+          browser: chrome
+```
+
+The action logs the complete constructed command before executing it:
+
+```text
+Cypress test command: npx percy exec -- npx cypress run --browser chrome
+```
+
+Because `command-prefix` runs via `npx`, it is compatible with npm and Yarn Classic. It also works with pnpm and Yarn Modern when those tools are configured with `nodeLinker: node-modules`.
+
+<Warning>
+  When `command-prefix` is used, the action runs Cypress via the CLI rather than the Module API, so no [job summary](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions) is produced for that step.
+</Warning>
+
+## `command`
+
+Use `command` when you need complete control over the test invocation — for example, to call a custom script or to support a package manager that requires its own runner binary.
+
+The action executes your value directly using [@actions/exec](https://github.com/actions/toolkit/tree/main/packages/exec):
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: cypress-io/github-action@v7
+    with:
+      command: npm run custom-test
+```
+
+Because `command` bypasses the Module API entirely, the following parameters are **ignored** when `command` is set:
+
+- All CLI run options (browser, spec, record, parallel, etc.)
+- `publish-summary` and `summary-title`
+- `command-prefix`
+
+The action logs a warning for each ignored parameter.
+
+<Note>
+  If you only need to run a standard `cypress run` with specific flags, prefer using the equivalent action parameters instead of `command`. See [Migrating from CLI command](/reference/cli-migration) for a mapping of CLI options to action parameters.
+</Note>
+
+## Install only, no tests
+
+To separate dependency installation from test execution — for example, to run linting in between — set `runTests: false` on the install step and `install: false` on the test step:
+
+```yaml .github/workflows/lint-then-test.yml
+name: Lint and test
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        uses: cypress-io/github-action@v7
+        with:
+          runTests: false
+
+      - run: yarn lint
+
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+```
+
+## `command` and `command-prefix` cannot be used together
+
+The `command` parameter overrides `command-prefix`. If both are specified, `command-prefix` is ignored and the action runs the value of `command` directly.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Package managers" icon="box" href="/advanced/package-managers">
+    Configure pnpm, Yarn Modern, and Yarn PnP
+  </Card>
+  <Card title="Debugging" icon="bug" href="/advanced/debugging">
+    Enable debug logs and diagnose CI failures
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters
+  </Card>
+  <Card title="CLI migration" icon="terminal" href="/reference/cli-migration">
+    Map cypress run CLI options to action parameters
+  </Card>
+</CardGroup>

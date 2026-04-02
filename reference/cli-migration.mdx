@@ -1,0 +1,78 @@
+---
+title: "Migrating from CLI"
+description: "Map cypress run CLI options to their equivalent cypress-io/github-action input parameters."
+---
+
+If you previously ran Cypress using a `cypress run` CLI command in CI, you can map those options directly to action parameters. In most cases the parameter name matches the long-form CLI option.
+
+## CLI to action parameter mapping
+
+| `cypress run` CLI option | Action parameter | Notes |
+|---|---|---|
+| `--auto-cancel-after-failures` | `auto-cancel-after-failures` | |
+| `--browser`, `-b` | `browser` | Also accepts a filesystem path |
+| `--ci-build-id` | `ci-build-id` | |
+| `--component` | `component: true` | |
+| `--config`, `-c` | `config` | Comma-separated key=value |
+| `--config-file`, `-C` | `config-file` | |
+| `--e2e` | *(default)* | `component: false` is the default |
+| `--env`, `-e` | `env` | Or use `CYPRESS_`-prefixed step env vars |
+| `--group` | `group` | |
+| `--headed` | `headed: true` | |
+| `--headless` | *(default)* | `headed: false` is the default |
+| `--parallel` | `parallel: true` | |
+| `--project`, `-P` | `project` | |
+| `--quiet`, `-q` | `quiet: true` | |
+| `--record` | `record: true` | |
+| `--spec`, `-s` | `spec` | |
+| `--tag`, `-t` | `tag` | |
+
+<Note>
+The following CLI options have no equivalent action parameter: `--help`, `--key` (use `CYPRESS_RECORD_KEY` env var instead), `--no-exit`, `--no-runner-ui`, `--port`, `--reporter`, `--reporter-options`, `--runner-ui`. If you need these, use the `command` parameter to pass the full CLI command.
+</Note>
+
+## Example migration
+
+**Before — running Cypress via CLI in CI:**
+
+```bash
+npx cypress run --spec cypress/e2e/spec.cy.js --browser chrome
+```
+
+Or as a `package.json` script:
+
+```json
+"cy:e2e:chrome": "cypress run --spec cypress/e2e/spec.cy.js --browser chrome"
+```
+
+**After — using the GitHub Action:**
+
+```yaml
+name: E2E Tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cypress-io/github-action@v7
+        with:
+          browser: chrome
+          spec: cypress/e2e/spec.cy.js
+```
+
+The action installs dependencies and runs Cypress — no separate install step needed.
+
+## When to use the command parameter
+
+If you have CLI options that don't have action parameter equivalents (e.g., `--reporter`), use the `command` parameter to pass the full CLI invocation:
+
+```yaml
+- uses: cypress-io/github-action@v7
+  with:
+    command: npx cypress run --reporter junit --reporter-options mochaFile=results/test-output.xml
+```
+
+<Warning>
+When `command` is set, most other action parameters are ignored. See [Custom commands](/advanced/custom-commands) for the full list of ignored parameters.
+</Warning>

@@ -1,0 +1,199 @@
+---
+title: "Parallel test execution"
+description: "Run Cypress tests across multiple GitHub Actions containers simultaneously using Cypress Cloud parallelization and the strategy: matrix approach."
+---
+
+Cypress parallelization splits your test suite across multiple machines that run simultaneously, reducing total CI time. The action itself does not spawn containers — it coordinates with Cypress Cloud to distribute specs across the containers that GitHub Actions' `strategy: matrix` provides.
+
+<Note>
+  Parallel test execution requires a [Cypress Cloud](https://on.cypress.io/cloud-introduction) account. All containers must record to the same run, so `record: true` is required.
+</Note>
+
+## How parallelization works
+
+When multiple containers run with `record: true` and `parallel: true`, Cypress Cloud assigns spec files to each container dynamically. Each container picks up the next available spec as it finishes its current one, keeping all containers busy until the full suite completes.
+
+## Basic parallel workflow
+
+Add `strategy: matrix` to your job and increase the number of entries in `containers` to control how many parallel runners you use:
+
+```yaml .github/workflows/ci.yml
+name: Parallel Cypress tests
+on: push
+jobs:
+  test:
+    name: Cypress run
+    runs-on: ubuntu-24.04
+    strategy:
+      # Do NOT set fail-fast: true — see the warning below
+      fail-fast: false
+      matrix:
+        # Spin up 3 containers running in parallel
+        containers: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+          parallel: true
+          group: 'Actions example'
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+To run more containers in parallel, add more entries to the `containers` array — for example `[1, 2, 3, 4, 5]`.
+
+<Warning>
+  Always set `fail-fast: false` in your matrix strategy. If `fail-fast` is left at its default value of `true`, GitHub cancels any remaining containers as soon as one fails. Cypress Cloud sees these containers disappear mid-run and marks the run as timed out rather than failed.
+</Warning>
+
+## Grouping runs
+
+The `group` parameter assigns a label to the parallel run in Cypress Cloud. Groups let you distinguish between different suites or configurations recorded under the same commit.
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    record: true
+    parallel: true
+    group: 'E2E — Chrome'
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+If you run both E2E and component tests in parallel, give each a distinct `group` name so results appear separately in Cypress Cloud.
+
+## CI build ID
+
+Cypress Cloud uses a `ci-build-id` to identify which containers belong to the same parallel run. By default the action derives this ID from values available in the GitHub Actions environment (`GITHUB_SHA`, workflow name, and event name).
+
+You can override the default with a custom value using the `ci-build-id` parameter:
+
+```yaml
+- name: Cypress run
+  uses: cypress-io/github-action@v7
+  with:
+    record: true
+    parallel: true
+    group: 'Actions example'
+    ci-build-id: '${{ github.sha }}-${{ github.workflow }}-${{ github.event_name }}'
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Robust custom build ID for re-runs
+
+If you re-run a workflow and the `ci-build-id` stays the same, Cypress Cloud rejects the new run with a "Build already finished" error. To avoid this, generate a fresh unique ID on every workflow run — including re-runs.
+
+The recommended pattern is a separate `prepare` job that runs first and outputs a UUID:
+
+```yaml .github/workflows/ci.yml
+name: Parallel Cypress tests
+on: push
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      uuid: ${{ steps.uuid.outputs.value }}
+    steps:
+      - name: Generate unique build ID
+        id: uuid
+        # Combines the commit SHA with a Unix timestamp so every
+        # run — including re-runs — produces a new ID
+        run: echo "value=sha-$GITHUB_SHA-time-$(date +"%s")" >> $GITHUB_OUTPUT
+
+  smoke-tests:
+    needs: [prepare]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        containers: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+          parallel: true
+          ci-build-id: ${{ needs.prepare.outputs.uuid }}
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Because `date +"%s"` produces a new timestamp on every execution, re-running the workflow generates a new `ci-build-id` and Cypress Cloud creates a fresh run.
+
+## Re-running failed jobs
+
+<Warning>
+  GitHub's "Re-run failed jobs" feature is **not suited** for use with Cypress Cloud parallel runs. When you re-run only the failed jobs in a matrix, GitHub still re-runs **all** Cypress tests across those containers — not just the ones that failed. Use Cypress Cloud's [Spec Prioritization](https://docs.cypress.io/cloud/features/smart-orchestration/spec-prioritization) or [Auto Cancellation](https://docs.cypress.io/cloud/features/smart-orchestration/run-cancellation) features if you want to optimise runs with failing tests.
+</Warning>
+
+## Docker image recommendation
+
+During a staged rollout of a new GitHub-hosted runner image, GitHub can serve a mix of current and updated image versions across your matrix containers. If the containers end up with different browser versions installed, Cypress Cloud may report a browser version mismatch error.
+
+To eliminate this risk, pin your parallel job to a specific Docker image:
+
+```yaml .github/workflows/ci.yml
+name: Parallel Cypress tests (Docker)
+on: push
+jobs:
+  test:
+    name: Cypress run
+    runs-on: ubuntu-24.04
+    container:
+      # Pin to a specific image tag to guarantee a consistent browser version
+      # across all containers — see https://hub.docker.com/r/cypress/browsers/tags
+      image: cypress/browsers:latest
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        containers: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+          parallel: true
+          group: 'Actions example'
+          browser: chrome
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Replace `latest` with a specific tag from [`cypress/browsers` on Docker Hub](https://hub.docker.com/r/cypress/browsers/tags) to prevent breaking changes when new images are published.
+
+<Note>
+  A Docker image is only necessary when testing against an installed browser such as Chrome or Firefox. If you test against the default built-in Electron browser, browser version mismatches cannot occur because Electron's version is fixed by the Cypress release — not the runner image.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Advanced Cloud features" icon="sparkles" href="/cloud/advanced-cloud">
+    Auto-cancel after failures, job summaries, and scheduled runs
+  </Card>
+  <Card title="Recording test results" icon="cloud" href="/cloud/recording">
+    Set up Cypress Cloud recording with projectId and record key
+  </Card>
+  <Card title="Action inputs reference" icon="book" href="/reference/inputs">
+    See all available action parameters
+  </Card>
+  <Card title="Server and build" icon="server" href="/workflow/server-and-build">
+    Build your app before running parallel tests
+  </Card>
+</CardGroup>

@@ -1,0 +1,83 @@
+---
+title: "Component Testing"
+description: "Run Cypress component tests in GitHub Actions by setting component: true in cypress-io/github-action."
+---
+
+[Cypress Component Testing](https://on.cypress.io/component-testing) mounts individual UI components in a real browser and asserts on their behaviour in isolation — without needing to spin up a full application server. This makes it fast to test component logic, styles, and interactions independently of the rest of your app.
+
+Use component testing when you want to:
+
+- Verify a component renders correctly given certain props or state
+- Test component interactions without full E2E overhead
+- Catch regressions in individual components during development
+
+## Basic component test workflow
+
+To run component tests, set `component: true` in the action's `with` block:
+
+```yaml .github/workflows/component.yml
+name: Component tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Cypress run
+        uses: cypress-io/github-action@v7
+        with:
+          component: true
+```
+
+The action installs your dependencies, caches them, and runs `cypress run --component` using the [Cypress Module API](https://on.cypress.io/module-api).
+
+<Note>
+  Component testing requires Cypress 10 or later and a component testing configuration in your `cypress.config.js` file. Refer to the [Cypress component testing setup docs](https://on.cypress.io/component-testing) for your specific framework (React, Vue, Angular, etc.).
+</Note>
+
+## Combining component and E2E tests in one job
+
+You can run both test types in the same CI job by using two steps. The first step runs E2E tests (the default), and the second step runs component tests. Setting `install: false` on the second step reuses the dependencies installed by the first step — no reinstall needed:
+
+```yaml .github/workflows/e2e-and-component.yml
+name: E2E and component tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run E2E tests
+        uses: cypress-io/github-action@v7
+
+      - name: Run component tests
+        uses: cypress-io/github-action@v7
+        with:
+          # Reuse dependencies installed by the previous step
+          install: false
+          component: true
+```
+
+<Tip>
+  If you want to run E2E and component tests as separate jobs — for example to run them in parallel — define two independent jobs in your workflow, each using the action with the appropriate `component` value. Each job installs its own dependencies.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="End-to-end testing" icon="monitor" href="/testing/e2e">
+    Run full E2E workflows and test across multiple operating systems
+  </Card>
+  <Card title="Browsers" icon="globe" href="/testing/browsers">
+    Run component tests in Chrome, Firefox, or Edge
+  </Card>
+  <Card title="Specs and configuration" icon="sliders" href="/testing/specs-and-config">
+    Target specific component spec files and pass configuration values
+  </Card>
+  <Card title="Cypress Cloud recording" icon="cloud" href="/cloud/recording">
+    Record component test results to Cypress Cloud
+  </Card>
+</CardGroup>

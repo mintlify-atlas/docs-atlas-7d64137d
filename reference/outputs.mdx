@@ -1,0 +1,43 @@
+---
+title: "Action outputs"
+description: "Step outputs produced by cypress-io/github-action after a test run."
+---
+
+The action sets GitHub step outputs after running tests. To use an output in a later step, give the action step an `id` and reference it with `steps.<id>.outputs.<name>`.
+
+## resultsUrl
+
+The Cypress Cloud URL for the recorded test run. Only set when `record: true` is used and the run completes successfully. Not set when using the `command` or `command-prefix` parameters.
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cypress run
+        id: cypress
+        uses: cypress-io/github-action@v7
+        with:
+          record: true
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+
+      - name: Print results URL
+        if: always()
+        run: |
+          echo "Run status: ${{ steps.cypress.outcome }}"
+          echo "Results at: ${{ steps.cypress.outputs.resultsUrl }}"
+```
+
+<Note>
+Every GitHub Actions step automatically has `outcome` and `conclusion` properties (values: `success`, `failure`, `cancelled`, `skipped`). Use `if: always()` to access these even when a step fails.
+</Note>
+
+## dashboardUrl
+
+<Warning>
+`dashboardUrl` is deprecated. Use `resultsUrl` instead. The Cypress Dashboard has been renamed to Cypress Cloud.
+</Warning>
+
+`dashboardUrl` was the original step output name and still works but will be removed in a future release. Migrate to `resultsUrl` in your workflows.

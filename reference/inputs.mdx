@@ -1,0 +1,304 @@
+---
+title: "Action inputs"
+description: "Complete reference for all input parameters of cypress-io/github-action."
+---
+
+All inputs are specified under the `with` key in your workflow step. All inputs are optional unless noted otherwise.
+
+## Test execution
+
+<ParamField path="browser" type="string">
+  Name of the browser to run tests in. Defaults to the built-in Electron browser. Accepted values: `chrome`, `chromium`, `chrome-for-testing`, `firefox`, `edge`, or a filesystem path to a browser executable.
+
+  ```yaml
+  with:
+    browser: chrome
+  ```
+</ParamField>
+
+<ParamField path="component" type="boolean" default="false">
+  Set to `true` to run Cypress component tests instead of end-to-end tests.
+
+  ```yaml
+  with:
+    component: true
+  ```
+</ParamField>
+
+<ParamField path="spec" type="string">
+  Spec file(s) to run. Supports glob patterns and multi-line YAML for multiple specs.
+
+  ```yaml
+  with:
+    spec: cypress/e2e/login.cy.js
+  ```
+
+  Multi-line example:
+  ```yaml
+  with:
+    spec: |
+      cypress/e2e/spec-a.cy.js
+      cypress/**/*-b.cy.js
+  ```
+</ParamField>
+
+<ParamField path="config" type="string">
+  Comma-separated Cypress configuration key=value pairs. Overrides values in your configuration file.
+
+  ```yaml
+  with:
+    config: pageLoadTimeout=100000,baseUrl=http://localhost:3000
+  ```
+</ParamField>
+
+<ParamField path="config-file" type="string" default="">
+  Path to your Cypress configuration file.
+
+  ```yaml
+  with:
+    config-file: cypress.config-alternate.js
+  ```
+</ParamField>
+
+<ParamField path="env" type="string">
+  Comma-separated `key=value` pairs of Cypress environment variables. As an alternative, prefix step `env` variables with `CYPRESS_` — they are loaded automatically.
+
+  ```yaml
+  with:
+    env: host=api.dev.local,port=4222
+  ```
+</ParamField>
+
+<ParamField path="headed" type="boolean">
+  Run the browser in headed (visible) mode. Default is headless.
+
+  ```yaml
+  with:
+    headed: true
+  ```
+</ParamField>
+
+<ParamField path="quiet" type="boolean">
+  Suppress Cypress-specific output from stdout.
+
+  ```yaml
+  with:
+    quiet: true
+  ```
+</ParamField>
+
+<ParamField path="project" type="string">
+  Path to a Cypress project directory (containing `cypress.config.js` and tests). Useful when tests are in a subdirectory.
+
+  ```yaml
+  with:
+    project: ./test-subdirectory
+  ```
+</ParamField>
+
+## Cypress Cloud
+
+<ParamField path="record" type="boolean" default="false">
+  Send test results to Cypress Cloud. Requires `CYPRESS_RECORD_KEY` and a `projectId`.
+
+  ```yaml
+  with:
+    record: true
+  env:
+    CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  ```
+</ParamField>
+
+<ParamField path="parallel" type="boolean">
+  Load-balance recorded tests across multiple containers. Requires `record: true` and a Cypress Cloud account.
+
+  ```yaml
+  with:
+    record: true
+    parallel: true
+  ```
+</ParamField>
+
+<ParamField path="group" type="string">
+  Group name for organizing recorded runs in Cypress Cloud.
+
+  ```yaml
+  with:
+    record: true
+    group: 'E2E - Chrome'
+  ```
+</ParamField>
+
+<ParamField path="tag" type="string">
+  Tag or comma-separated list of tags to label a recorded run in Cypress Cloud.
+
+  ```yaml
+  with:
+    tag: nightly,staging
+  ```
+</ParamField>
+
+<ParamField path="ci-build-id" type="string">
+  Unique identifier that links multiple CI machines into one parallel run. Auto-generated from GitHub context by default.
+
+  ```yaml
+  with:
+    ci-build-id: '${{ github.sha }}-${{ github.workflow }}'
+  ```
+</ParamField>
+
+<ParamField path="auto-cancel-after-failures" type="number">
+  Cancel the Cypress Cloud run after this many test failures. Requires Cypress 12.6.0+ and a Business or Enterprise Cypress Cloud plan. Set to `false` to disable auto-cancellation even if enabled globally.
+
+  ```yaml
+  with:
+    record: true
+    auto-cancel-after-failures: 5
+  ```
+</ParamField>
+
+## Workflow coordination
+
+<ParamField path="build" type="string">
+  Command to run before tests. Useful for compiling your app.
+
+  ```yaml
+  with:
+    build: npm run build
+  ```
+</ParamField>
+
+<ParamField path="start" type="string">
+  Command to start a local server in the background before running tests. Use commas or multiline YAML to start multiple servers.
+
+  ```yaml
+  with:
+    start: npm start
+  ```
+</ParamField>
+
+<ParamField path="start-windows" type="string">
+  Alternative `start` command used only on Windows runners. Takes precedence over `start` on Windows.
+
+  ```yaml
+  with:
+    start: npm start
+    start-windows: npm run start:windows
+  ```
+</ParamField>
+
+<ParamField path="wait-on" type="string">
+  URL to poll before running tests. The action waits until the URL responds with a 2xx status.
+
+  ```yaml
+  with:
+    start: npm start
+    wait-on: 'http://localhost:3000'
+  ```
+</ParamField>
+
+<ParamField path="wait-on-timeout" type="number" default="60">
+  Seconds to wait for the `wait-on` URL before failing. Default is 60 seconds.
+
+  ```yaml
+  with:
+    wait-on-timeout: 120
+  ```
+</ParamField>
+
+<ParamField path="working-directory" type="string">
+  Path to the directory containing the Cypress configuration file and tests. Useful in monorepos.
+
+  ```yaml
+  with:
+    working-directory: apps/e2e
+  ```
+</ParamField>
+
+## Installation and caching
+
+<ParamField path="install" type="boolean" default="true">
+  Set to `false` to skip dependency installation (when dependencies were already installed in a previous step).
+
+  ```yaml
+  with:
+    install: false
+  ```
+</ParamField>
+
+<ParamField path="install-command" type="string">
+  Custom command to install dependencies, overriding the detected default.
+
+  ```yaml
+  with:
+    install-command: yarn --frozen-lockfile --silent
+  ```
+</ParamField>
+
+<ParamField path="runTests" type="boolean" default="true">
+  Set to `false` to install dependencies without running any tests.
+
+  ```yaml
+  with:
+    runTests: false
+  ```
+</ParamField>
+
+<ParamField path="package-manager-cache" type="boolean" default="true">
+  Set to `false` to disable the action's built-in package manager caching. Disable this when you handle caching separately (e.g., with `actions/setup-node`).
+
+  ```yaml
+  with:
+    package-manager-cache: false
+  ```
+</ParamField>
+
+<ParamField path="cache-key" type="string">
+  Custom cache key for the Cypress binary and dependency cache. Useful when running tests across multiple Node.js versions.
+
+  ```yaml
+  with:
+    cache-key: node-v${{ matrix.node }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+  ```
+</ParamField>
+
+## Custom commands
+
+<ParamField path="command" type="string">
+  Fully custom command that replaces the entire `cypress run` invocation. Most other action parameters are ignored when this is set.
+
+  ```yaml
+  with:
+    command: yarn run --binaries-only cypress run
+  ```
+</ParamField>
+
+<ParamField path="command-prefix" type="string">
+  Prefix prepended to the `cypress run` command via `npx`. Cannot be used with `command`.
+
+  ```yaml
+  with:
+    command-prefix: 'percy exec -- npx'
+  ```
+</ParamField>
+
+## Job summary
+
+<ParamField path="publish-summary" type="boolean" default="true">
+  Set to `false` to suppress the GitHub Actions job summary produced by the action.
+
+  ```yaml
+  with:
+    publish-summary: false
+  ```
+</ParamField>
+
+<ParamField path="summary-title" type="string" default="Cypress Results">
+  Custom title for the job summary. Useful when running multiple Cypress steps in one job.
+
+  ```yaml
+  with:
+    summary-title: 'E2E - Chrome'
+  ```
+</ParamField>
